@@ -35,6 +35,7 @@ MCP_CAN CAN(SPI_CS_PIN);
 //menu setup
 const char menu[][6] = {"MAP", "Volts", "AFR"};
 const int menuItems = 3;
+int menuSelected = 0;
 boolean atMenu = false;
 
 
@@ -43,11 +44,17 @@ void isr ()  {
   if (digitalRead(PinCLK)){
     rotationdirection= digitalRead(PinDT);
   }
-  else
-  {
+  else {
     rotationdirection= !digitalRead(PinDT);
   }
   Serial.println(rotationdirection);
+  if(atMenu == true){
+    if(rotationdirection == true && menuSelected < menuItems-1){
+      menuSelected++;
+    } else if( rotationdirection == false && menuSelected > 0)
+    { menuSelected--; }  
+  }
+  
   TurnDetected = true;
   delay(200);  // delay for Debouncing
 }
@@ -116,25 +123,28 @@ void loop()
 
 void writeToScreen(char text[])
 {
-  u8g2.setFont(u8g2_font_logisoso62_tn);
-  u8g2.firstPage();
-  do {
-    u8g2.drawStr(0, 62, text); 
-  } while ( u8g2.nextPage() );
+    u8g2.setFont(u8g2_font_logisoso62_tn);
+    u8g2.firstPage();
+    do {
+      u8g2.drawStr(0, 62, text); 
+    } while ( u8g2.nextPage() );
 }
 
 void showMenu()
 {
     u8g2.clearBuffer();          // clear the internal memory
-    u8g2.setFont(u8g2_font_crox3tb_tn);  // choose a suitable font
+    u8g2.setFont(u8g2_font_ncenB08_tr);  // choose a suitable font
     u8g2.firstPage();
     do {
         int position = 0;
         for(int i=0; i<menuItems; i++)
         {
             position += 15;
-            u8g2.setFont(u8g2_font_ncenB08_tr);  // choose a suitable font
-            u8g2.drawStr(0, position, menu[i]); // write something to the internal memory  
+            if(i==menuSelected){
+              u8g2.drawStr(10, position, menu[i]); // write something to the internal memory  
+            } else {
+              u8g2.drawStr(0, position, menu[i]); // write something to the internal memory  
+            }
         }
     } while ( u8g2.nextPage() );
     
