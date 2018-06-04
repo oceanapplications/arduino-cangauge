@@ -84,46 +84,69 @@ void setup()
 
 void loop()
 {
+   if(atMenu){
+       showMenu();
+    } else {
+      readCan();
+    }
+    checkEncoder();
+}
+
+void readCan()
+{
     unsigned char len = 0;
     unsigned char buf[8];
 
-    char text[] = "12.5";
-
-    if(atMenu){
-       showMenu();
-    } else {
-      writeToScreen(text);
-    }
-  
-    checkEncoder();
-    
+    char text[8] = "12.5";
+    switch (menuSelected)
+        {
+          case 0: 
+             strncpy( text, "1.A", sizeof(text) );
+             text[sizeof(text)-1] = 0;
+            break;  
+          case 1: 
+             strncpy( text, "2.3", sizeof(text) );
+             text[sizeof(text)-1] = 0;
+            break;
+          case 2: 
+             strncpy( text, "3.3", sizeof(text) );
+             text[sizeof(text)-1] = 0;
+            break;    
+        }
+   
     if(CAN_MSGAVAIL == CAN.checkReceive())            // check if data coming
     {
         CAN.readMsgBuf(&len, buf);    // read data,  len: data length, buf: data buf
-
         unsigned int canId = CAN.getCanId();
 
-        if(canId == 0x125){
-          
-          Serial.println("-----------------------------");
-          Serial.print("Get data from ID: ");
-          Serial.println(canId, HEX);
-  
-          for(int i = 0; i<len; i++)    // print the data
-          {   
-              unsigned int data = buf[6] * 256 + buf[7];
-              Serial.print(data);
-              //Serial.print(buf[i]);
-              Serial.print("\t");
-          }
-          Serial.println();
+        switch (menuSelected)
+        {
+          case 0: 
+            displayMAP(canId, buf);
+            break;  
         }
+    }
+    writeToScreen(text);  
+}
+
+void displayMAP(unsigned int canId, unsigned char buf[8]){
+
+   if(canId == 0x125){
+        Serial.println("-----------------------------");
+        Serial.print("Get data from ID: ");
+        Serial.println(canId, HEX);
+ 
+        unsigned int data = buf[6] * 256 + buf[7];
+        Serial.print(data);
+        Serial.print("\t");
+ 
+        Serial.println();
     }
 }
 
 void writeToScreen(char text[])
 {
-    u8g2.setFont(u8g2_font_logisoso62_tn);
+    u8g2.setFont(u8g2_font_logisoso58_tr);
     u8g2.firstPage();
     do {
       u8g2.drawStr(0, 62, text); 
