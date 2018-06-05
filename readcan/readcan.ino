@@ -23,9 +23,9 @@ U8G2_SSD1306_128X64_NONAME_1_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE);
 volatile boolean TurnDetected;  // need volatile for Interrupts
 volatile boolean rotationdirection;  // CW or CCW rotation
 
-const int PinCLK=2;   // Generating interrupts using CLK signal
-const int PinDT=3;    // Reading DT signal
-const int PinSW=4;    // Reading Push Button switch
+const int PinCLK=3;   // Generating interrupts using CLK signal
+const int PinDT=4;    // Reading DT signal
+const int PinSW=5;    // Reading Push Button switch
 //rotary encoder end
 
 //CAN Setup
@@ -47,7 +47,7 @@ void isr ()  {
   else {
     rotationdirection= !digitalRead(PinDT);
   }
-  Serial.println(rotationdirection);
+  //Serial.println(rotationdirection);
   if(atMenu == true){
     if(rotationdirection == true && menuSelected < menuItems-1){
       menuSelected++;
@@ -69,7 +69,7 @@ void setup()
     pinMode(PinDT,INPUT);  
     pinMode(PinSW,INPUT);
     digitalWrite(PinSW, HIGH); // Pull-Up resistor for switch
-    attachInterrupt (0,isr,FALLING); // interrupt 0 always connected to pin 2 on Arduino UNO
+    attachInterrupt (1,isr,FALLING); // interrupt 0 always connected to pin 2 on Arduino UNO
 
     //setup canbus
     while (CAN_OK != CAN.begin(CAN_1000KBPS))
@@ -98,7 +98,7 @@ void readCan()
     unsigned char buf[8];
 
     char text[8] = "12.5";
-    switch (menuSelected)
+    /*switch (menuSelected)
         {
           case 0: 
              strncpy( text, "1.A", sizeof(text) );
@@ -112,7 +112,7 @@ void readCan()
              strncpy( text, "3.3", sizeof(text) );
              text[sizeof(text)-1] = 0;
             break;    
-        }
+        }*/
    
     if(CAN_MSGAVAIL == CAN.checkReceive())            // check if data coming
     {
@@ -124,23 +124,66 @@ void readCan()
           case 0: 
             displayMAP(canId, buf);
             break;  
+          case 1: 
+            displayVoltage(canId, buf);
+            break;  
+          case 2: 
+            displayAFR(canId, buf);
+            break;
         }
+        
     }
-    writeToScreen(text);  
+     
 }
 
 void displayMAP(unsigned int canId, unsigned char buf[8]){
-
+        
    if(canId == 0x125){
         Serial.println("-----------------------------");
         Serial.print("Get data from ID: ");
         Serial.println(canId, HEX);
- 
         unsigned int data = buf[6] * 256 + buf[7];
         Serial.print(data);
         Serial.print("\t");
- 
         Serial.println();
+
+        float fData = data/100.0;
+        
+        writeToScreen(fData);
+    }
+}
+
+void displayVoltage(unsigned int canId, unsigned char buf[8]){
+        
+   if(canId == 0x118){
+        Serial.println("-----------------------------");
+        Serial.print("Get data from ID: ");
+        Serial.println(canId, HEX);
+        unsigned int data = buf[2] * 256 + buf[3];
+        Serial.print(data);
+        Serial.print("\t");
+        Serial.println();
+
+        float fData = data/100.0;
+        
+        writeToScreen(fData);
+    }
+}
+
+void displayAFR(unsigned int canId, unsigned char buf[8]){
+        
+   if(canId == 0x125){
+        Serial.println("-----------------------------");
+        Serial.print("Get data from ID: ");
+        Serial.println(canId, HEX);
+        unsigned int data = buf[2] * 256 + buf[3];
+        Serial.print(data);
+        Serial.print("\t");
+        Serial.println();
+
+        float fData = data/100.0;
+        
+        writeToScreen(fData);
     }
 }
 
@@ -149,7 +192,28 @@ void writeToScreen(char text[])
     u8g2.setFont(u8g2_font_logisoso58_tr);
     u8g2.firstPage();
     do {
+      u8g2.setCursor(0,62);
       u8g2.drawStr(0, 62, text); 
+    } while ( u8g2.nextPage() );
+}
+
+void writeToScreen(unsigned int text)
+{
+    u8g2.setFont(u8g2_font_logisoso58_tr);
+    u8g2.firstPage();
+    do {
+      u8g2.setCursor(0,62);
+      u8g2.print(text);
+    } while ( u8g2.nextPage() );
+}
+
+void writeToScreen(float text)
+{
+    u8g2.setFont(u8g2_font_logisoso58_tr);
+    u8g2.firstPage();
+    do {
+      u8g2.setCursor(0,62);
+      u8g2.print(text);
     } while ( u8g2.nextPage() );
 }
 
@@ -176,6 +240,10 @@ void showMenu()
 void checkEncoder(){
   if (!(digitalRead(PinSW))) {   // check if button is pressed
         atMenu = !atMenu;
+        if(atMenu == false){
+          char text[] = "";
+          writeToScreen(text);
+        }
         Serial.println("Clicked");
         delay(200);
     }
