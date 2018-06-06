@@ -2,6 +2,9 @@
 // send data coming to fast, such as less than 10ms, you can use this way
 // loovee, 2014-6-13
 
+//realtime clock 
+#include <Wire.h>
+#include <DS3231.h>
 
 #include <SPI.h>
 #include "mcp_can.h"
@@ -9,13 +12,6 @@
 #include <Arduino.h>
 #include <U8g2lib.h>
 
-//screen setup
-#ifdef U8X8_HAVE_HW_SPI
-#include <SPI.h>
-#endif
-#ifdef U8X8_HAVE_HW_I2C
-#include <Wire.h>
-#endif
 U8G2_SSD1306_128X64_NONAME_1_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE);
 //Screen setup end
 
@@ -33,30 +29,38 @@ const int SPI_CS_PIN = 9;
 MCP_CAN CAN(SPI_CS_PIN);
 
 //menu setup
-const char menu[][6] = {"MAP", "Volts", "AFR"};
-const int menuItems = 3;
-int menuSelected = 0;
+const char menu[][6] = {"MAP", "Volts", "AFR", "Clock"};
+const int menuItems = 4;
+int menuSelected = 3;
 boolean atMenu = false;
 
+//clock setup
+DS3231 clock;
+RTCDateTime dt;
 
 // Interrupt routine runs if CLK goes from HIGH to LOW
 void isr ()  {
-  if (digitalRead(PinCLK)){
-    rotationdirection= digitalRead(PinDT);
-  }
-  else {
-    rotationdirection= !digitalRead(PinDT);
-  }
-  //Serial.println(rotationdirection);
-  if(atMenu == true){
-    if(rotationdirection == true && menuSelected < menuItems-1){
-      menuSelected++;
-    } else if( rotationdirection == false && menuSelected > 0)
-    { menuSelected--; }  
-  }
-  
-  TurnDetected = true;
-  delay(200);  // delay for Debouncing
+
+   static unsigned long last_interrupt_time = 0;
+   unsigned long interrupt_time = millis();
+   if (interrupt_time - last_interrupt_time > 200) 
+   {
+      if (digitalRead(PinCLK)){
+        rotationdirection= digitalRead(PinDT);
+      }
+      else {
+        rotationdirection= !digitalRead(PinDT);
+      }
+
+      if(atMenu == true){
+        if(rotationdirection == true && menuSelected < menuItems-1){
+          menuSelected++;
+        } else if( rotationdirection == false && menuSelected > 0)
+        { menuSelected--; }  
+      }      
+      TurnDetected = true;  
+   }
+   last_interrupt_time = interrupt_time;
 }
 
 void setup()
@@ -70,6 +74,11 @@ void setup()
     pinMode(PinSW,INPUT);
     digitalWrite(PinSW, HIGH); // Pull-Up resistor for switch
     attachInterrupt (1,isr,FALLING); // interrupt 0 always connected to pin 2 on Arduino UNO
+
+    //setup clock
+    Serial.println("Initialize DS3231");;
+    clock.begin();
+    clock.setDateTime(__DATE__, __TIME__);
 
     //setup canbus
     while (CAN_OK != CAN.begin(CAN_1000KBPS))
@@ -98,21 +107,6 @@ void readCan()
     unsigned char buf[8];
 
     char text[8] = "12.5";
-    /*switch (menuSelected)
-        {
-          case 0: 
-             strncpy( text, "1.A", sizeof(text) );
-             text[sizeof(text)-1] = 0;
-            break;  
-          case 1: 
-             strncpy( text, "2.3", sizeof(text) );
-             text[sizeof(text)-1] = 0;
-            break;
-          case 2: 
-             strncpy( text, "3.3", sizeof(text) );
-             text[sizeof(text)-1] = 0;
-            break;    
-        }*/
    
     if(CAN_MSGAVAIL == CAN.checkReceive())            // check if data coming
     {
@@ -130,8 +124,13 @@ void readCan()
           case 2: 
             displayAFR(canId, buf);
             break;
+          case 3: 
+            displayClock();
+            break;
         }
         
+    } else if(menuSelected == 3){
+      displayClock();
     }
      
 }
@@ -187,6 +186,12 @@ void displayAFR(unsigned int canId, unsigned char buf[8]){
     }
 }
 
+void displayClock()
+{
+   dt = clock.getDateTime();
+  writeToScreenSmall(clock.dateFormat("h:i", dt));
+}
+
 void writeToScreen(char text[])
 {
     u8g2.setFont(u8g2_font_logisoso58_tr);
@@ -213,6 +218,16 @@ void writeToScreen(float text)
     u8g2.firstPage();
     do {
       u8g2.setCursor(0,62);
+      u8g2.print(text);
+    } while ( u8g2.nextPage() );
+}
+
+void writeToScreenSmall(char text[])
+{
+    u8g2.setFont(u8g2_font_logisoso42_tr);
+    u8g2.firstPage();
+    do {
+      u8g2.setCursor(0,42);
       u8g2.print(text);
     } while ( u8g2.nextPage() );
 }
@@ -244,7 +259,6 @@ void checkEncoder(){
           char text[] = "";
           writeToScreen(text);
         }
-        Serial.println("Clicked");
         delay(200);
     }
 }
