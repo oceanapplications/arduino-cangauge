@@ -43,7 +43,7 @@ void isr ()  {
 
    static unsigned long last_interrupt_time = 0;
    unsigned long interrupt_time = millis();
-   if (interrupt_time - last_interrupt_time > 200) 
+   if (interrupt_time - last_interrupt_time > 100) 
    {
       if (digitalRead(PinCLK)){
         rotationdirection= digitalRead(PinDT);
