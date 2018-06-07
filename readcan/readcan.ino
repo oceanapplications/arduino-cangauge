@@ -106,7 +106,8 @@ void readCan()
     unsigned char len = 0;
     unsigned char buf[8];
 
-    char text[8] = "12.5";
+    static unsigned long last_message_time = 0;
+    unsigned long message_time = millis();
    
     if(CAN_MSGAVAIL == CAN.checkReceive())            // check if data coming
     {
@@ -128,9 +129,12 @@ void readCan()
             displayClock();
             break;
         }
-        
+        last_message_time = message_time;    
     } else if(menuSelected == 3){
       displayClock();
+    } else if(message_time - last_message_time > 2000){
+      char na[] = "N/A";
+      writeToScreen(na);
     }
      
 }
